@@ -1,7 +1,6 @@
 import tensorflow as tf
 import numpy as np
 import cv2
-from tensorflow.python.saved_model import tag_constants
 import time
 
 MODEL_PATH = 'mbnv2_128x64'
@@ -11,7 +10,7 @@ MAX_BATCH_SIZE = 4
 class FeatureExtractor:
     def __init__(self, model_path=MODEL_PATH, img_size = IMG_SIZE, max_batch_size=MAX_BATCH_SIZE):
         print('loading tensorflow model')
-        self.model = tf.saved_model.load(model_path, tags=[tag_constants.SERVING])
+        self.model = tf.saved_model.load(model_path)
         print('loaded model')
 
         self.img_size = img_size
