@@ -4,7 +4,7 @@ import cv2
 from tensorflow.python.saved_model import tag_constants
 import time
 
-MODEL_PATH = 'mbnv2_128x64_trt'
+MODEL_PATH = 'mbnv2_128x64'
 IMG_SIZE = (128, 64)
 MAX_BATCH_SIZE = 4
 

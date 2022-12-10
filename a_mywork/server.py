@@ -5,6 +5,7 @@ import imagezmq
 from sort import *
 from my_utils import *
 import simplejpeg
+from feature_extractor import FeatureExtractor
 
 
 # define global variables
@@ -21,7 +22,7 @@ check_obsolete_counter_1, check_obsolete_counter_2 = 0, 0
 
 
 tracker = Sort()
-feature_extractor = None
+feature_extractor = FeatureExtractor()
 
 
 print('waiting for images')
@@ -61,11 +62,10 @@ with imagezmq.ImageHub() as image_hub:
                         tracked_boxes = tracked_boxes_and_ids[:,:-1].astype(np.int16)
 
                         # extract features
-                        features = []
+                        features = np.empty((0, 320))
                         if feature_extractor is not None:
-                            for box in tracked_boxes:
-                                feature = feature_extractor.extract(image, box)
-                                features.append(feature)
+                            ls_roi = [image[y1:y2, x1:x2] for (x1, y1, x2, y2) in tracked_boxes]
+                            features = feature_extractor.inference(ls_roi)
 
                         # processing table data
                         current_time = time.time()
@@ -129,11 +129,10 @@ with imagezmq.ImageHub() as image_hub:
                                                               :-1].astype(np.int16)
 
                         # extract features
-                        features = []
+                        features = np.empty((0, 320))
                         if feature_extractor is not None:
-                            for box in tracked_boxes:
-                                feature = feature_extractor.extract(image, box)
-                                features.append(feature)
+                            ls_roi = [image[y1:y2, x1:x2] for (x1, y1, x2, y2) in tracked_boxes]
+                            features = feature_extractor.inference(ls_roi)
 
                         # processing table data
                         current_time = time.time()
