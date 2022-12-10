@@ -21,6 +21,27 @@ global_ls_stay_time = {}
 check_obsolete_counter_1, check_obsolete_counter_2 = 0, 0
 
 
+# util functions
+def show_table():
+    # print(len(cam2_to_cam1_final.items()))
+    cam1_to_cam2 = None
+    if len(cam2_to_cam1_final.items()) > 0:
+        cam1_to_cam2 = {v:k for k, v in cam2_to_cam1_final.items()}
+    # print('cam1 to cam 2: ', cam1_to_cam2)
+    print('Cam1_ID\t\tFirst_Time_See\t\tNum_Features\t\tCam2_ID\t\tStay_Time')
+    for id, data in cam1_table.items():
+        if cam1_to_cam2 is not None and id in cam1_to_cam2.keys():
+            # if cam1_to_cam2[id] in global_ls_stay_time.keys():
+                # print('\n{}\t\t{}\t\t{}\t\t{}\t\t{}'.format(id, data['first_time_see'], len(data['features']), cam1_to_cam2[id]), global_ls_stay_time[cam1_to_cam2[id]])
+            # else:
+            print('\n{}\t\t{}\t\t{}\t\t{}\t\t{}'.format(id, data['first_time_see'], len(data['features']), cam1_to_cam2[id], ''))
+
+        else:
+            print('\n{}\t\t{}\t\t{}\t\t{}\t\t{}'.format(id, data['first_time_see'], len(data['features']), '', ''))
+    
+    print('---------------------------------------------------')
+
+
 tracker = Sort()
 feature_extractor = FeatureExtractor()
 
@@ -104,6 +125,7 @@ with imagezmq.ImageHub() as image_hub:
 
                 cv2.imshow(cam_name, image)  # 1 window for each camera
                 cv2.waitKey(1)
+                show_table()
 
             # ---------------------------------------------------- cam 2 ----------------------------------------------------
             elif info.startswith('cam2'):
@@ -195,6 +217,7 @@ with imagezmq.ImageHub() as image_hub:
 
                 cv2.imshow(cam_name, image)  # 1 window for each camera
                 cv2.waitKey(1)
+                show_table()
 
         except Exception as e:
             print(e)
