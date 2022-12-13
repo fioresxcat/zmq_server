@@ -42,7 +42,8 @@ def show_table():
     print('---------------------------------------------------')
 
 
-tracker = Sort()
+tracker_1 = Sort()
+tracker_2 = Sort()
 feature_extractor = FeatureExtractor()
 
 
@@ -51,6 +52,7 @@ with imagezmq.ImageHub() as image_hub:
     while True:  # show streamed images until Ctrl-C
         try:
             info, jpg_buffer = image_hub.recv_jpg()
+            # print('info: ', info)
             image_hub.send_reply(b'OK')
 
             # decode image
@@ -74,11 +76,12 @@ with imagezmq.ImageHub() as image_hub:
                         boxes_info[i+3]), float(boxes_info[i+4])] for i in range(0, len(boxes_info), 5)]
                     # filter out boxes with low confidence score
                     boxes = [box for box in boxes if box[4] > 0.5]
+                    # print('boxes before track: ', boxes)
 
                     if len(boxes) > 0:
                         # track
                         boxes_to_track = np.array(boxes)[:, :-1]
-                        tracked_boxes_and_ids = np.array(tracker.update(boxes_to_track))
+                        tracked_boxes_and_ids = np.array(tracker_1.update(boxes_to_track))
                         ids = tracked_boxes_and_ids[:, -1]
                         tracked_boxes = tracked_boxes_and_ids[:,:-1].astype(np.int16)
 
@@ -126,6 +129,8 @@ with imagezmq.ImageHub() as image_hub:
                 cv2.imshow(cam_name, image)  # 1 window for each camera
                 cv2.waitKey(1)
                 show_table()
+                print('cam2_to_cam1_final: ', cam2_to_cam1_final)
+
 
             # ---------------------------------------------------- cam 2 ----------------------------------------------------
             elif info.startswith('cam2'):
@@ -145,7 +150,7 @@ with imagezmq.ImageHub() as image_hub:
                         # track
                         boxes_to_track = np.array(boxes)[:, :-1]
                         tracked_boxes_and_ids = np.array(
-                            tracker.update(boxes_to_track))
+                            tracker_2.update(boxes_to_track))
                         ids = tracked_boxes_and_ids[:, -1]
                         tracked_boxes = tracked_boxes_and_ids[:,
                                                               :-1].astype(np.int16)
@@ -217,7 +222,9 @@ with imagezmq.ImageHub() as image_hub:
 
                 cv2.imshow(cam_name, image)  # 1 window for each camera
                 cv2.waitKey(1)
+                # print('box form cam2: ', tracked_boxes)
                 show_table()
+                print('cam2_to_cam1_final: ', cam2_to_cam1_final)
 
         except Exception as e:
             print(e)
