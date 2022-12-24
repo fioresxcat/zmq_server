@@ -54,12 +54,11 @@ start_cam1, start_cam2 = 0, 0
 with imagezmq.ImageHub() as image_hub:
     while True:  # show streamed images until Ctrl-C
         try:
-            info, jpg_buffer = image_hub.receive()
+            info, jpg_buffer = image_hub.recv_jpg()
             # print('info: ', info)
-            # image_hub.send_reply(b'OK')
+            image_hub.send_reply(b'OK')
 
             # decode image
-            # image = cv2.imdecode(np.frombuffer(jpg_buffer, dtype='uint8'), -1)  # see opencv docs for info on -1 parameter
             image = simplejpeg.decode_jpeg(jpg_buffer, colorspace='BGR')
 
             if info == 'nano1':
@@ -96,10 +95,10 @@ with imagezmq.ImageHub() as image_hub:
 
                         # processing table data
                         current_time = time.time()
-                        for feature, cam2_id in zip(features, ids):
-                            if cam2_id in cam1_table.keys():    # neu item id da co trong table
+                        for feature, id in zip(features, ids):
+                            if id in cam1_table.keys():    # neu item id da co trong table
                                 # get object from table
-                                myobject = cam1_table[cam2_id]
+                                myobject = cam1_table[id]
 
                                 # update object with condition
                                 if myobject['num_frame_from_last_time_update'] >= MAX_NUM_FRAME_FROM_LAST_TIME_UPDATE and len(myobject['features']) < MAX_NUM_FEATURES:
@@ -112,9 +111,9 @@ with imagezmq.ImageHub() as image_hub:
                                 myobject['num_frame_from_last_time_see'] = 0
                                 myobject['num_frame_from_last_time_update'] += 1
 
-                            elif cam2_id != -1:   # neu item id chua co trong table
+                            elif id != -1:   # neu item id chua co trong table
                                 # them doi tuong vao bang
-                                cam1_table[cam2_id] = {
+                                cam1_table[id] = {
                                     'first_time_see': current_time,
                                     'features': [feature],
                                     'last_time_see': current_time,
@@ -122,7 +121,7 @@ with imagezmq.ImageHub() as image_hub:
                                     'num_frame_from_last_time_update': 0
                                 }
                                 temp = time2datetime(current_time)
-                                print(f'id {cam2_id} comes in at {temp}')
+                                print(f'id {id} comes in at {temp}')
 
                         # plot boxes and ids onto image
                         for i, box in enumerate(tracked_boxes):
@@ -173,10 +172,10 @@ with imagezmq.ImageHub() as image_hub:
 
                         # processing table data
                         current_time = time.time()
-                        for feature, cam2_id in zip(features, ids):
-                            if cam2_id in cam2_table.keys():    # neu item id da co trong table
+                        for feature, id in zip(features, ids):
+                            if id in cam2_table.keys():    # neu item id da co trong table
                                 # get object from table
-                                myobject = cam2_table[cam2_id]
+                                myobject = cam2_table[id]
 
                                 # update object with condition
                                 if myobject['num_frame_from_last_time_update'] >= MAX_NUM_FRAME_FROM_LAST_TIME_UPDATE and len(myobject['features']) < MAX_NUM_FEATURES:
@@ -189,9 +188,9 @@ with imagezmq.ImageHub() as image_hub:
                                 myobject['num_frame_from_last_time_see'] = 0
                                 myobject['num_frame_from_last_time_update'] += 1
 
-                            elif cam2_id != -1:   # neu item id chua co trong table
+                            elif id != -1:   # neu item id chua co trong table
                                 # them doi tuong vao bang
-                                cam2_table[cam2_id] = {
+                                cam2_table[id] = {
                                     'first_time_see': current_time,
                                     'features': [feature],
                                     'last_time_see': current_time,
@@ -203,24 +202,24 @@ with imagezmq.ImageHub() as image_hub:
                             min_id = check_cosine_similarity(feature, cam1_table)
                             if min_id != -1:  # nếu có
                                 # nếu id này chưa xuất hiện trong cam2_to_cam1_final (lần đầu tiên có cái giống nó ở cam 1), thêm nó vào
-                                if cam2_id not in cam2_to_cam1_final:
-                                    cam2_to_cam1_final[cam2_id] = min_id
+                                if id not in cam2_to_cam1_final:
+                                    cam2_to_cam1_final[id] = min_id
                                     # thêm cặp (min_id, id) này vào cam1_to_cam2_counter
-                                    cam1_to_cam2_counter[(min_id, cam2_id)] = 1
+                                    cam1_to_cam2_counter[(min_id, id)] = 1
 
                                 else:
                                     # nếu cặp (min_id, id) này đã có từ trước đó, tăng độ củng cố 2 cái này là một lên 1
-                                    if (min_id, cam2_id) in cam1_to_cam2_counter:
+                                    if (min_id, id) in cam1_to_cam2_counter:
                                         # (cam1_id, cam2_id)
-                                        cam1_to_cam2_counter[(min_id, cam2_id)] += 1
+                                        cam1_to_cam2_counter[(min_id, id)] += 1
                                         # cập nhật id trong cam 1 giống nó nhất
-                                        if cam1_to_cam2_counter[(min_id, cam2_id)] > cam1_to_cam2_counter[(cam2_to_cam1_final[cam2_id], cam2_id)]:
-                                            cam2_to_cam1_final[cam2_id] = min_id
+                                        if cam1_to_cam2_counter[(min_id, id)] > cam1_to_cam2_counter[(cam2_to_cam1_final[id], id)]:
+                                            cam2_to_cam1_final[id] = min_id
                                             # print(f'ID {id} in cam 2 is now matched with ID {min_id} in cam 1')
 
                                     # nếu cặp (min_id, id) này chưa có (dù id đã có rồi, chứng tỏ lại có 1 thằng min_id khác ở cam 1 giống thằng id này ở cam 2) => thêm vào
                                     else:
-                                        cam1_to_cam2_counter[(min_id, cam2_id)] = 1
+                                        cam1_to_cam2_counter[(min_id, id)] = 1
                             
                         # plot boxes and ids onto image
                         for i, box in enumerate(tracked_boxes):
@@ -264,27 +263,27 @@ with imagezmq.ImageHub() as image_hub:
 
                     
                     # xoa
-                    for cam2_id in ls_delete:
+                    for id in ls_delete:
                         # xoa object tuong ung trong bang cam 1
                         try:
-                            del cam1_table[cam2_to_cam1_final[cam2_id]]
+                            del cam1_table[cam2_to_cam1_final[id]]
                         except:
                             pass
                         
                         # xoa object trong cam 2
-                        del cam2_table[cam2_id]
+                        del cam2_table[id]
 
                         # xoa object tuong ung trong cam1_to_cam2_counter
                         try:
                             ls_keys = list(cam1_to_cam2_counter.keys())
                             for key in ls_keys:
-                                if key[0] == cam2_to_cam1_final[cam2_id]:
+                                if key[0] == cam2_to_cam1_final[id]:
                                     del cam1_to_cam2_counter[key]
                         except:
                             pass
 
                         try:
-                            del cam2_to_cam1_final[cam2_id]
+                            del cam2_to_cam1_final[id]
                         except:
                             pass
                         
