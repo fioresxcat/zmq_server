@@ -7,7 +7,8 @@ from my_utils import *
 import simplejpeg
 from feature_extractor import FeatureExtractor
 from gui.gui import *
-
+import threading
+import time
 
 # define global variables
 cam1_table, cam2_table = {}, {}
@@ -51,8 +52,10 @@ feature_extractor = FeatureExtractor()
 class Worker(QThread):
     ImageUpdate1 = pyqtSignal(QImage)
     ImageUpdate2 = pyqtSignal(QImage)
+    InfoUpdate = pyqtSignal(str)
     def run(self):
         print('waiting for images')
+        start_cam1, start_cam2 = 0, 0
         with imagezmq.ImageHub() as image_hub:
             self.ThreadActive = True
             while self.ThreadActive:  # show streamed images until Ctrl-C
@@ -62,7 +65,6 @@ class Worker(QThread):
                     image_hub.send_reply(b'OK')
 
                     # decode image
-                    # image = cv2.imdecode(np.frombuffer(jpg_buffer, dtype='uint8'), -1)  # see opencv docs for info on -1 parameter
                     image = simplejpeg.decode_jpeg(jpg_buffer, colorspace='BGR')
 
                     if info == 'nano1':
@@ -124,6 +126,9 @@ class Worker(QThread):
                                             'num_frame_from_last_time_see': 0,
                                             'num_frame_from_last_time_update': 0
                                         }
+                                        temp = time2datetime(current_time)
+                                        print(f'id {cam2_id} comes in at {temp}')
+                                        self.InfoUpdate.emit(f'id {cam2_id} comes in at {temp}')
 
                                 # plot boxes and ids onto image
                                 for i, box in enumerate(tracked_boxes):
@@ -131,6 +136,11 @@ class Worker(QThread):
                                         box[1])), (int(box[2]), int(box[3])), (0, 0, 255), 2)
                                     image = cv2.putText(image, str(ids[i]), (int(box[0]), int(
                                         box[1])+30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+
+                        time_elapses = time.perf_counter() - start_cam1
+                        start_cam1 = time.perf_counter()
+                        fps = 1 / time_elapses
+                        image = cv2.putText(image, str(fps), (5, 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
 
                         # cv2.imshow(cam_name, image)  # 1 window for each camera
                         # cv2.waitKey(1)
@@ -162,8 +172,7 @@ class Worker(QThread):
                                 tracked_boxes_and_ids = np.array(
                                     tracker_2.update(boxes_to_track))
                                 ids = tracked_boxes_and_ids[:, -1]
-                                tracked_boxes = tracked_boxes_and_ids[:,
-                                                                    :-1].astype(np.int16)
+                                tracked_boxes = tracked_boxes_and_ids[:, :-1].astype(np.int16)
 
                                 # extract features
                                 features = np.empty((0, 320))
@@ -200,8 +209,7 @@ class Worker(QThread):
                                         }
 
                                     # check feature hien tai cua item nay co giong voi feature nao trong bang cam 1 khong (có thể các lần khác chưa giống nhưng lần này lại giống)
-                                    min_id = check_cosine_similarity(
-                                        feature, cam1_table)
+                                    min_id = check_cosine_similarity(feature, cam1_table)
                                     if min_id != -1:  # nếu có
                                         # nếu id này chưa xuất hiện trong cam2_to_cam1_final (lần đầu tiên có cái giống nó ở cam 1), thêm nó vào
                                         if id not in cam2_to_cam1_final:
@@ -229,7 +237,71 @@ class Worker(QThread):
                                         box[1])), (int(box[2]), int(box[3])), (0, 0, 255), 2)
                                     image = cv2.putText(image, str(cam2_to_cam1_final[ids[i]]), (int(
                                         box[0]), int(box[1])+30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+                                
+                            # duyet qua tat ca nhung id khong xuat hien o lan nhan nay trong bang cam 2
+                            ls_id_received = ids if len(boxes) > 0 else []
+                            ls_delete = []
+                            for cam2_id, cam2_object in cam2_table.items():
+                                # nếu id ko trong đống id vừa nhận được
+                                if cam2_id not in ls_id_received:
+                                    # tăng số frame từ lần nhìn thấy gần nhất
+                                    cam2_object['num_frame_from_last_time_see'] += 1
+                                    cam2_object['num_frame_from_last_time_update'] += 1
 
+                                    # nếu số frame từ lần nhìn thấy gần nhất lớn hơn ngưỡng cho phép => xóa đối tượng này
+                                    if cam2_object['num_frame_from_last_time_see'] >= MAX_NUM_FRAME_FROM_LAST_TIME_SEE:
+                                        # get doi tuong tuong ung trong bang cam 1
+                                        if cam2_id in cam2_to_cam1_final:
+                                            correspond_cam1_id = cam2_to_cam1_final[cam2_id]
+                                            correspond_cam1_object = cam1_table[correspond_cam1_id]
+                                            # nếu số frame từ lần nhìn thấy gần nhất ở cam 1 cũng lớn hơn ngưỡng cho phép => xóa đối tượng này
+                                            # if correspond_cam1_object['num_frame_from_last_time_see'] >= MAX_NUM_FRAME_FROM_LAST_TIME_SEE:
+                                            if True:
+                                                come_out_time = max(cam2_object['last_time_see'], correspond_cam1_object['last_time_see'])
+                                                come_in_time = min(cam2_object['first_time_see'], correspond_cam1_object['first_time_see'])
+                                                stay_time = come_out_time - come_in_time
+                                                global_ls_stay_time[correspond_cam1_id] = stay_time
+                                                ls_delete.append(cam2_id)
+                                            print('ID {} comes out at {}. Stay time: {}'.format(correspond_cam1_id, come_out_time, stay_time))
+                                            self.InfoUpdate.emit('ID {} comes out at {}. Stay time: {}'.format(correspond_cam1_id, come_out_time, stay_time))
+
+                                        else:  # nếu ko có đối tượng tương ứng trong bảng cam 1
+                                            come_out_time = cam2_object['last_time_see']
+                                            come_in_time = cam2_object['first_time_see']
+                                            stay_time = come_out_time - come_in_time
+                                            global_ls_stay_time[correspond_cam1_id] = stay_time
+                                            ls_delete.append(cam2_id)
+
+                            
+                            # xoa
+                            for id in ls_delete:
+                                # xoa object tuong ung trong bang cam 1
+                                try:
+                                    del cam1_table[cam2_to_cam1_final[id]]
+                                except:
+                                    pass
+                                
+                                # xoa object trong cam 2
+                                del cam2_table[id]
+
+                                # xoa object tuong ung trong cam1_to_cam2_counter
+                                try:
+                                    ls_keys = list(cam1_to_cam2_counter.keys())
+                                    for key in ls_keys:
+                                        if key[0] == cam2_to_cam1_final[id]:
+                                            del cam1_to_cam2_counter[key]
+                                except:
+                                    pass
+
+                                try:
+                                    del cam2_to_cam1_final[id]
+                                except:
+                                    pass
+                                
+                        time_elapses = time.perf_counter() - start_cam2
+                        start_cam2 = time.perf_counter()
+                        fps = 1 / time_elapses
+                        image = cv2.putText(image, str(fps), (5, 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
                         # cv2.imshow(cam_name, image)  # 1 window for each camera
                         # cv2.waitKey(1)
                         if cam_name == 'cam1':
@@ -246,9 +318,10 @@ class Worker(QThread):
     
     def convertQt(self, image):
         Image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        FlippedImage = cv2.flip(Image, 1)
+        # FlippedImage = cv2.flip(Image, 1)
+        FlippedImage = Image
         ConvertToQtFormat = QImage(FlippedImage.data, FlippedImage.shape[1], FlippedImage.shape[0], QImage.Format_RGB888)
-        Pic = ConvertToQtFormat.scaled(640, 480, Qt.KeepAspectRatio)
+        Pic = ConvertToQtFormat.scaled(960, 720, Qt.KeepAspectRatio)
         return Pic
     
     def stop(self):
