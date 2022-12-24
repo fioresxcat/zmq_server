@@ -44,8 +44,8 @@ class Ui_MainWindow(object):
     def ImageUpdateSlot2(self, Image):
         self.cam2_frame.setPixmap(QPixmap.fromImage(Image))
 
-    def InfoUpdateSlot(self, str):
-        self.textBrowser.append(str)
+    def InfoUpdateSlot(self, mess):
+        self.textBrowser.append(mess+'\n')
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle("The best GUI ever created")
