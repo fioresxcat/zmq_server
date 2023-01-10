@@ -24,6 +24,7 @@ class FeatureExtractor:
             pred = self.model.signatures['serving_default'](img)['output_1']
     
     def preprocess(self, data):
+        print(data)
         data = [cv2.resize(img, self.img_size[::-1]) for img in data]
         # data = tf.keras.applications.mobilenet_v2.preprocess_input(np.array(data))
         return tf.cast(data, tf.float32)

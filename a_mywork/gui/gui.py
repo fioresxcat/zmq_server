@@ -5,6 +5,7 @@ from PyQt5.QtCore import *
 from PyQt5 import QtWidgets, QtCore
 import cv2
 
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow, Worker):
         MainWindow.setObjectName("MainWindow")
@@ -34,7 +35,7 @@ class Ui_MainWindow(object):
         self.Worker.ImageUpdate1.connect(self.ImageUpdateSlot1)
         self.Worker.ImageUpdate2.connect(self.ImageUpdateSlot2)
         self.Worker.InfoUpdate.connect(self.InfoUpdateSlot)
-        
+
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -45,7 +46,11 @@ class Ui_MainWindow(object):
         self.cam2_frame.setPixmap(QPixmap.fromImage(Image))
 
     def InfoUpdateSlot(self, mess):
-        self.textBrowser.append(mess+'\n')
+        if 'comes in' in mess:
+            mess = '<span style=\" color: #ff0000;\">%s</span>' % mess
+        else:
+            mess = '<span style=\" color: #00ff00;\">%s</span>' % mess
+        self.textBrowser.append(mess)
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle("The best GUI ever created")
@@ -53,4 +58,3 @@ class Ui_MainWindow(object):
         MainWindow.setFixedHeight(960)
         self.cam1_frame.setText("No signal from cam 1")
         self.cam2_frame.setText("No signal from cam 2")
-    
